@@ -30,6 +30,19 @@ class WebhookService {
       return false;
     }
 
+    // ⭐ MAPEAR ESTADO A RESULT VÁLIDO PARA WEBHOOK
+    const mapearResult = (status) => {
+      const resultMap = {
+        'OPEN': 'OPEN',
+        'PROCESSING': 'OPEN', // Los trades en procesamiento se consideran OPEN
+        'PENDING': 'OPEN',    // Los trades pendientes se consideran OPEN
+        'WIN': 'WIN',
+        'LOST': 'LOST',
+        'DRAW': 'DRAW'
+      };
+      return resultMap[status] || 'OPEN';
+    };
+
     const payload = {
       event: tipo,
       timestamp: new Date().toISOString(),
@@ -44,7 +57,7 @@ class WebhookService {
           createdAt: trade.createdAt,
           isDemo: trade.isDemo,
           fromBot: trade.fromBot,
-          result: trade.result,
+          result: mapearResult(trade.status), // ⭐ USAR RESULT MAPEADO
           userId: trade.userId
         }
       }

@@ -1,59 +1,58 @@
+// src/utils/cache.js
+import fs from 'fs/promises';
 import logger from './logger.js';
-import { config } from '../config/config.js';
 
-class TradeCache {
+class SimpleTradeCache {
   constructor() {
-    this.cache = new Map();
-    this.ttl = config.cache.ttl;
+    this.processedTrades = new Set();
+    this.cacheFile = 'data/processed_trades.txt';
+    this.loadCache();
     
-    // Limpieza periódica del cache
-    setInterval(() => {
-      this.cleanup();
-    }, this.ttl);
+    // Guardar cada 30 segundos
+    setInterval(() => this.saveCache(), 30000);
   }
 
-  // Verificar si un trade ya fue procesado
+  async loadCache() {
+    try {
+      const data = await fs.readFile(this.cacheFile, 'utf8');
+      const trades = data.split('\n').filter(line => line.trim());
+      trades.forEach(tradeId => this.processedTrades.add(tradeId));
+      logger.info(`📂 Cache cargado: ${this.processedTrades.size} trades procesados`);
+    } catch (error) {
+      logger.info('📂 Iniciando con cache vacío');
+    }
+  }
+
+  async saveCache() {
+    try {
+      await fs.mkdir('data', { recursive: true });
+      const data = Array.from(this.processedTrades).join('\n');
+      await fs.writeFile(this.cacheFile, data);
+      logger.debug(`💾 Cache guardado: ${this.processedTrades.size} trades`);
+    } catch (error) {
+      logger.error('Error guardando cache:', error);
+    }
+  }
+
   isProcessed(tradeId) {
-    const entry = this.cache.get(tradeId);
-    if (entry && Date.now() - entry.timestamp < this.ttl) {
-      return true;
-    }
-    return false;
+    return this.processedTrades.has(tradeId);
   }
 
-  // Marcar trade como procesado
-  markAsProcessed(tradeId, tradeData = {}) {
-    this.cache.set(tradeId, {
-      timestamp: Date.now(),
-      data: tradeData
-    });
-    logger.debug(`Trade ${tradeId} marcado como procesado`);
+  markAsProcessed(tradeId) {
+    this.processedTrades.add(tradeId);
+    logger.info(`✅ Trade ${tradeId} marcado como procesado`);
   }
 
-  // Limpiar entradas expiradas
-  cleanup() {
-    const now = Date.now();
-    let cleaned = 0;
-    
-    for (const [key, entry] of this.cache.entries()) {
-      if (now - entry.timestamp >= this.ttl) {
-        this.cache.delete(key);
-        cleaned++;
-      }
-    }
-    
-    if (cleaned > 0) {
-      logger.debug(`Cache limpiado: ${cleaned} entradas eliminadas`);
-    }
-  }
-
-  // Obtener estadísticas del cache
   getStats() {
     return {
-      size: this.cache.size,
-      ttl: this.ttl
+      total: this.processedTrades.size,
+      cacheFile: this.cacheFile
     };
+  }
+
+  async forceSave() {
+    await this.saveCache();
   }
 }
 
-export default new TradeCache();
+export default new SimpleTradeCache();
