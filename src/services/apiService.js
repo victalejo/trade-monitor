@@ -58,7 +58,7 @@ class ApiService {
       const response = await this.client.get('', {
         params: { 
           page: 1, 
-          pageSize: 10 
+          pageSize: 300 
         }
       });
       
