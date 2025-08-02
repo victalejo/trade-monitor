@@ -8,6 +8,7 @@ class TradeMonitor {
   constructor() {
     this.isRunning = false;
     this.intervalId = null;
+    this.consecutiveErrors = 0;
     this.stats = {
       totalScans: 0,
       tradesProcessed: 0,
@@ -71,15 +72,25 @@ class TradeMonitor {
       const resultado = await apiService.obtenerTodasLasPaginas();
       const { trades, totalPaginas, errores } = resultado;
       
-      // Filtrar trades con estados que nos interesan
-      const tradesInteres = trades.filter(trade => 
-        ['OPEN', 'PROCESSING', 'PENDING'].includes(trade.status)
-      );
+      // ⭐ RESETEAR CONTADOR DE ERRORES SI TODO VA BIEN
+      this.consecutiveErrors = 0;
+      
+      // ⭐ FILTRAR TRADES DE INTERÉS (basado en la respuesta real que viste)
+      const tradesInteres = trades.filter(trade => {
+        // Según tu respuesta, los trades tienen status "COMPLETED", pero necesitamos OPEN/PROCESSING/PENDING
+        return ['OPEN', 'PROCESSING', 'PENDING'].includes(trade.status);
+      });
 
-      logger.info(`📊 Scan completado: ${trades.length} trades, ${tradesInteres.length} de interés, ${totalPaginas} páginas`);
+      logger.info(`📊 Scan completado: ${trades.length} trades totales, ${tradesInteres.length} de interés, ${totalPaginas} páginas`);
+
+      // ⭐ MOSTRAR ALGUNOS ESTADOS PARA DEBUG
+      const estadosEncontrados = [...new Set(trades.map(t => t.status))];
+      logger.debug(`📋 Estados encontrados: ${estadosEncontrados.join(', ')}`);
 
       if (tradesInteres.length > 0) {
         await this.procesarTradesDeInteres(tradesInteres);
+      } else {
+        logger.debug('ℹ️  No se encontraron trades con estado OPEN/PROCESSING/PENDING');
       }
 
       if (errores > 0) {
@@ -90,8 +101,20 @@ class TradeMonitor {
       logger.debug(`⏱️  Scan completado en ${duration}ms`);
 
     } catch (error) {
-      logger.error('❌ Error en scan de trades:', error);
-      this.stats.errors++;
+      logger.error('❌ Error en scan de trades:', error.message);
+      this.manejarError(error);
+    }
+  }
+
+  manejarError(error) {
+    this.consecutiveErrors++;
+    this.stats.errors++;
+    
+    logger.error(`❌ Error consecutivo #${this.consecutiveErrors}: ${error.message}`);
+    
+    // Si hay muchos errores consecutivos, podríamos implementar backoff exponencial
+    if (this.consecutiveErrors >= 5) {
+      logger.warn('⚠️  Muchos errores consecutivos detectados. Considera revisar la conexión.');
     }
   }
 

@@ -7,18 +7,23 @@ class ApiService {
     this.client = axios.create({
       baseURL: config.api.baseUrl,
       timeout: config.api.timeout,
-      maxRedirects: 0, // ⭐ NO SEGUIR REDIRECTS PARA DETECTAR ERRORES
+      maxRedirects: 0, // ⭐ NO SEGUIR REDIRECTS
+      validateStatus: function (status) {
+        return status >= 200 && status < 300; // ⭐ SOLO 2XX SON VÁLIDOS
+      },
       headers: {
         'api-token': config.api.token,
-        'Content-Type': 'application/json'
+        'Accept': 'application/json', // ⭐ HEADER ESPECÍFICO
+        'User-Agent': 'TradeMonitor/1.0' // ⭐ USER AGENT
       }
     });
 
-    // Interceptor mejorado
+    // Interceptor para debugging
     this.client.interceptors.request.use(
       (config) => {
         logger.info(`🔄 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url || ''}`);
-        logger.debug(`🔑 Token usado: ${config.headers['api-token']?.substring(0, 8)}...`);
+        logger.debug(`🔑 Headers:`, JSON.stringify(config.headers, null, 2));
+        logger.debug(`📊 Params:`, JSON.stringify(config.params, null, 2));
         return config;
       },
       (error) => {
@@ -29,24 +34,16 @@ class ApiService {
 
     this.client.interceptors.response.use(
       (response) => {
-        logger.info(`✅ API Response: ${response.status} - Datos recibidos correctamente`);
+        logger.info(`✅ API Response: ${response.status} - ${response.data?.data?.length || 0} trades recibidos`);
         return response;
       },
       (error) => {
-        // ⭐ DETECTAR PROBLEMA DE AUTENTICACIÓN
-        if (error.response?.status === 401) {
-          logger.error('🔐 ERROR CRÍTICO: Token de API inválido o expirado');
-          logger.error('   Verifica tu API_TOKEN en el archivo .env');
-        } else if (error.response?.status === 302 || error.response?.status === 301) {
-          logger.error('🔄 ERROR: La API está redirigiendo, posible problema de autenticación');
-          logger.error(`   Location header: ${error.response?.headers?.location}`);
-        }
-        
         logger.error('❌ API Response Error:', {
           status: error.response?.status,
           statusText: error.response?.statusText,
           url: error.config?.url,
-          message: error.message
+          message: error.message,
+          data: error.response?.data
         });
         return Promise.reject(error);
       }
@@ -56,24 +53,33 @@ class ApiService {
   async verificarToken() {
     try {
       logger.info('🔍 Verificando token de API...');
+      
+      // ⭐ HACER REQUEST EXACTAMENTE COMO EN POSTMAN
       const response = await this.client.get('', {
-        params: { page: 1, pageSize: 1 }
+        params: { 
+          page: 1, 
+          pageSize: 10 
+        }
       });
       
-      logger.info('✅ Token válido - API respondió correctamente');
-      return true;
-    } catch (error) {
-      if (error.response?.status === 401) {
-        logger.error('❌ Token inválido - Error 401 Unauthorized');
+      // ⭐ VERIFICAR ESTRUCTURA DE RESPUESTA
+      if (response.data && typeof response.data.currentPage !== 'undefined') {
+        logger.info('✅ Token válido - API respondió correctamente');
+        logger.info(`📊 Página ${response.data.currentPage}/${response.data.lastPage}, ${response.data.data?.length} trades`);
+        return true;
       } else {
-        logger.error('❌ Error verificando token:', error.message);
+        logger.error('❌ Respuesta inesperada de la API');
+        return false;
       }
+    } catch (error) {
+      logger.error('❌ Error verificando token:', error.message);
       return false;
     }
   }
 
   async obtenerTrades(pagina = 1) {
     try {
+      // ⭐ REQUEST EXACTAMENTE IGUAL QUE POSTMAN
       const response = await this.client.get('', {
         params: {
           page: pagina,
@@ -81,11 +87,12 @@ class ApiService {
         }
       });
 
-      // ⭐ VALIDAR ESTRUCTURA DE RESPUESTA
-      if (!response.data || !response.data.data) {
+      // ⭐ VALIDAR ESTRUCTURA
+      if (!response.data || !Array.isArray(response.data.data)) {
         throw new Error('Respuesta de API no tiene la estructura esperada');
       }
 
+      logger.debug(`📄 Página ${pagina}: ${response.data.data.length} trades obtenidos`);
       return response.data;
     } catch (error) {
       logger.error(`❌ Error obteniendo trades página ${pagina}:`, error.message);
@@ -95,16 +102,16 @@ class ApiService {
 
   async obtenerTodasLasPaginas() {
     try {
-      // ⭐ VERIFICAR TOKEN ANTES DE CONTINUAR
+      // ⭐ VERIFICAR TOKEN PRIMERO
       const tokenValido = await this.verificarToken();
       if (!tokenValido) {
-        throw new Error('Token de API inválido. Verifica tu configuración.');
+        throw new Error('Token de API inválido o respuesta inesperada');
       }
 
       const primeraPagina = await this.obtenerTrades(1);
       const totalPaginas = primeraPagina.lastPage || 1;
       
-      logger.info(`📊 Token válido - Iniciando scan de ${totalPaginas} páginas`);
+      logger.info(`📊 Iniciando scan completo: ${totalPaginas} páginas, ${primeraPagina.count} trades totales`);
 
       const promesas = [];
       for (let pagina = 1; pagina <= totalPaginas; pagina++) {
