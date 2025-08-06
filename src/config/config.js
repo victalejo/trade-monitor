@@ -20,7 +20,7 @@ export const config = {
     secret: process.env.WEBHOOK_SECRET
   },
   logging: {
-    level: process.env.LOG_LEVEL || 'info',
+    level: process.env.LOG_LEVEL || 'warn',
     file: process.env.LOG_FILE || 'logs/trade-monitor.log'
   },
   healthCheck: {

@@ -21,7 +21,7 @@ class ApiService {
     // Interceptor para debugging
     this.client.interceptors.request.use(
       (config) => {
-        logger.info(`🔄 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url || ''}`);
+        logger.debug(`🔄 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url || ''}`);
         logger.debug(`🔑 Headers:`, JSON.stringify(config.headers, null, 2));
         logger.debug(`📊 Params:`, JSON.stringify(config.params, null, 2));
         return config;
@@ -34,7 +34,7 @@ class ApiService {
 
     this.client.interceptors.response.use(
       (response) => {
-        logger.info(`✅ API Response: ${response.status} - ${response.data?.data?.length || 0} trades recibidos`);
+        logger.debug(`✅ API Response: ${response.status} - ${response.data?.data?.length || 0} trades recibidos`);
         return response;
       },
       (error) => {
@@ -52,7 +52,7 @@ class ApiService {
 
   async verificarToken() {
     try {
-      logger.info('🔍 Verificando token de API...');
+      logger.debug('🔍 Verificando token de API...');
       
       // ⭐ HACER REQUEST EXACTAMENTE COMO EN POSTMAN
       const response = await this.client.get('', {
@@ -64,8 +64,8 @@ class ApiService {
       
       // ⭐ VERIFICAR ESTRUCTURA DE RESPUESTA
       if (response.data && typeof response.data.currentPage !== 'undefined') {
-        logger.info('✅ Token válido - API respondió correctamente');
-        logger.info(`📊 Página ${response.data.currentPage}/${response.data.lastPage}, ${response.data.data?.length} trades`);
+        logger.debug('✅ Token válido - API respondió correctamente');
+        logger.debug(`📊 Página ${response.data.currentPage}/${response.data.lastPage}, ${response.data.data?.length} trades`);
         return true;
       } else {
         logger.error('❌ Respuesta inesperada de la API');
