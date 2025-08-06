@@ -1,37 +1,15 @@
-// src/utils/cache.js
-import fs from 'fs/promises';
+// src/utils/cache.js - SOLO MEMORIA, NADA DE ARCHIVOS
 import logger from './logger.js';
 
-class SimpleTradeCache {
+class SimpleMemoryCache {
   constructor() {
     this.processedTrades = new Set();
-    this.cacheFile = 'data/processed_trades.txt';
-    this.loadCache();
+    this.stats = {
+      processed: 0,
+      startTime: Date.now()
+    };
     
-    // Guardar cada 30 segundos
-    setInterval(() => this.saveCache(), 30000);
-  }
-
-  async loadCache() {
-    try {
-      const data = await fs.readFile(this.cacheFile, 'utf8');
-      const trades = data.split('\n').filter(line => line.trim());
-      trades.forEach(tradeId => this.processedTrades.add(tradeId));
-      logger.info(`📂 Cache cargado: ${this.processedTrades.size} trades procesados`);
-    } catch (error) {
-      logger.info('📂 Iniciando con cache vacío');
-    }
-  }
-
-  async saveCache() {
-    try {
-      await fs.mkdir('data', { recursive: true });
-      const data = Array.from(this.processedTrades).join('\n');
-      await fs.writeFile(this.cacheFile, data);
-      logger.debug(`💾 Cache guardado: ${this.processedTrades.size} trades`);
-    } catch (error) {
-      logger.error('Error guardando cache:', error);
-    }
+    logger.info('💾 Cache en memoria inicializado');
   }
 
   isProcessed(tradeId) {
@@ -39,20 +17,33 @@ class SimpleTradeCache {
   }
 
   markAsProcessed(tradeId) {
-    this.processedTrades.add(tradeId);
-    logger.info(`✅ Trade ${tradeId} marcado como procesado`);
+    if (!this.processedTrades.has(tradeId)) {
+      this.processedTrades.add(tradeId);
+      this.stats.processed++;
+      logger.info(`✅ Trade ${tradeId} marcado como procesado`);
+    }
   }
 
   getStats() {
     return {
       total: this.processedTrades.size,
-      cacheFile: this.cacheFile
+      processed: this.stats.processed,
+      uptime: Math.floor((Date.now() - this.stats.startTime) / 1000)
     };
   }
 
+  // Método dummy para compatibilidad
   async forceSave() {
-    await this.saveCache();
+    logger.debug('💾 Cache en memoria - no requiere guardado');
+  }
+
+  // Limpiar cache viejo cada hora
+  cleanup() {
+    if (this.processedTrades.size > 10000) {
+      logger.info('🧹 Limpiando cache - muy grande');
+      this.processedTrades.clear();
+    }
   }
 }
 
-export default new SimpleTradeCache();
+export default new SimpleMemoryCache();
