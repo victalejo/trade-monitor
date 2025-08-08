@@ -19,6 +19,12 @@ export const config = {
     timeout: parseInt(process.env.WEBHOOK_TIMEOUT) || 5000,
     secret: process.env.WEBHOOK_SECRET
   },
+  waha: {
+    url: process.env.WAHA_URL || 'http://localhost:3000/api/sendText',
+    apiKey: process.env.WAHA_API_KEY,
+    session: process.env.WAHA_SESSION || 'default',
+    chatId: process.env.WAHA_CHAT_ID
+  },
   logging: {
     level: process.env.LOG_LEVEL || 'warn',
     file: process.env.LOG_FILE || 'logs/trade-monitor.log'

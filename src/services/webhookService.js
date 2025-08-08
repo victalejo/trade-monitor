@@ -2,6 +2,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { config } from '../config/config.js';
 import logger from '../utils/logger.js';
+import wahaService from './wahaService.js';
 
 class WebhookService {
   constructor() {
@@ -27,6 +28,7 @@ class WebhookService {
   async enviarWebhook(trade, tipo = 'TRADE_OPEN') {
     if (!this.webhookUrl) {
       logger.warn('Webhook no enviado: URL no configurada');
+      await wahaService.enviarMensaje('Webhook no enviado: URL no configurada');
       return false;
     }
 
@@ -83,7 +85,8 @@ class WebhookService {
       });
 
       logger.info(`✅ Webhook enviado exitosamente para trade ${trade.id}: ${response.status}`);
-      
+      await wahaService.enviarMensaje(`Webhook enviado para trade ${trade.id} (${tipo})`);
+
       return {
         success: true,
         status: response.status,
@@ -96,6 +99,7 @@ class WebhookService {
         status: error.response?.status,
         data: error.response?.data
       });
+      await wahaService.enviarMensaje(`Error enviando webhook para trade ${trade.id}: ${error.message}`);
 
       return {
         success: false,
