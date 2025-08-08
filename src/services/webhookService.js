@@ -28,7 +28,9 @@ class WebhookService {
   async enviarWebhook(trade, tipo = 'TRADE_OPEN') {
     if (!this.webhookUrl) {
       logger.warn('Webhook no enviado: URL no configurada');
-      await wahaService.enviarMensaje('Webhook no enviado: URL no configurada');
+      await wahaService.enviarMensaje(
+        '*Webhook no enviado* ⚠️\nURL no configurada'
+      );
       return false;
     }
 
@@ -85,7 +87,12 @@ class WebhookService {
       });
 
       logger.info(`✅ Webhook enviado exitosamente para trade ${trade.id}: ${response.status}`);
-      await wahaService.enviarMensaje(`Webhook enviado para trade ${trade.id} (${tipo})`);
+      await wahaService.enviarMensaje(
+        `*Webhook enviado* ✅\n` +
+        `*Trade:* \`${trade.id}\`\n` +
+        `*Evento:* ${tipo}\n` +
+        `*Estado:* ${trade.status}`
+      );
 
       return {
         success: true,
@@ -99,7 +106,11 @@ class WebhookService {
         status: error.response?.status,
         data: error.response?.data
       });
-      await wahaService.enviarMensaje(`Error enviando webhook para trade ${trade.id}: ${error.message}`);
+      await wahaService.enviarMensaje(
+        `*Error al enviar webhook* ❌\n` +
+        `*Trade:* \`${trade.id}\`\n` +
+        `*Mensaje:* ${error.message}`
+      );
 
       return {
         success: false,
